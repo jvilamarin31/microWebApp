@@ -1,8 +1,5 @@
-const PRODUCTS_SERVICE_URL = window.PRODUCTS_SERVICE_URL || 'http://localhost:5003';
-const ORDERS_SERVICE_URL = window.ORDERS_SERVICE_URL || 'http://localhost:5004';
-
 function getProducts() {
-    fetch(`${PRODUCTS_SERVICE_URL}/api/products`, {
+    fetch('/api/products', {
      method: 'GET',
      headers: {
         'Content-Type': 'application/json'
@@ -84,7 +81,7 @@ function createProduct() {
         quantity: document.getElementById('quantity').value
     };
 
-    fetch(`${PRODUCTS_SERVICE_URL}/api/products`, {
+    fetch('/api/products', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
@@ -119,7 +116,7 @@ function updateProduct() {
         quantity: document.getElementById('quantity').value
     };
 
-    fetch(`${PRODUCTS_SERVICE_URL}/api/products/${productId}`, {
+    fetch(`/api/products/${productId}`, {
         method: 'PUT',
         headers: {
             'Content-Type': 'application/json',
@@ -150,7 +147,7 @@ function updateProduct() {
 function deleteProduct(productId) {
     console.log('Deleting product with ID:', productId);
     if (confirm('Are you sure you want to delete this product?')) {
-        fetch(`${PRODUCTS_SERVICE_URL}/api/products/${productId}`, {
+        fetch(`/api/products/${productId}`, {
             method: 'DELETE',
         })
         .then(response => {
@@ -201,7 +198,7 @@ function orderProducts() {
   };
 
   // Enviar los datos de la orden al endpoint
-  fetch(`${ORDERS_SERVICE_URL}/api/orders`, {
+  fetch('/api/orders', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(orderData),

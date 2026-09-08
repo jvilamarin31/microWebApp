@@ -1,7 +1,5 @@
-const USERS_SERVICE_URL = window.USERS_SERVICE_URL || 'http://localhost:5002';
-
 function getUsers() {
-    fetch(`${USERS_SERVICE_URL}/api/users`, {
+    fetch('/api/users', {
     method: 'GET',
     headers: {
       'Content-Type': 'application/json'
@@ -73,7 +71,7 @@ function createUser() {
         password: document.getElementById('password').value
     };
 
-    fetch(`${USERS_SERVICE_URL}/api/users`, {
+    fetch('/api/users', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
@@ -105,7 +103,7 @@ function updateUser() {
         password: document.getElementById('password').value
     };
 
-    fetch(`${USERS_SERVICE_URL}/api/users/${userId}`, {
+    fetch(`/api/users/${userId}`, {
         method: 'PUT',
         headers: {
             'Content-Type': 'application/json',
@@ -135,7 +133,7 @@ function updateUser() {
 function deleteUser(userId) {
     console.log('Deleting user with ID:', userId);
     if (confirm('Are you sure you want to delete this user?')) {
-        fetch(`${USERS_SERVICE_URL}/api/users/${userId}`, {
+        fetch(`/api/users/${userId}`, {
             method: 'DELETE',
         })
         .then(response => {
@@ -164,7 +162,7 @@ function handleLogin(event) {
   const username = document.getElementById('username').value;
   const password = document.getElementById('password').value;
 
-  fetch(`${USERS_SERVICE_URL}/api/login`, {
+  fetch('/api/login', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json'

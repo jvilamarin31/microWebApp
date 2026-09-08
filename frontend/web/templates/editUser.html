@@ -34,11 +34,6 @@
     </form>
 </div>
 
-<script>
-  window.USERS_SERVICE_URL = "{{ USERS_SERVICE_URL }}";
-  window.PRODUCTS_SERVICE_URL = "{{ PRODUCTS_SERVICE_URL }}";
-  window.ORDERS_SERVICE_URL = "{{ ORDERS_SERVICE_URL }}";
-</script>
 <script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
 <script src="/static/scriptUsers.js"></script>
 <script>
@@ -47,7 +42,7 @@
     //const userId = urlParams.get('id');
     const userId = {{id}}    
     // Obtener la información del usuario y llenar el formulario
-    fetch(`${USERS_SERVICE_URL}/api/users/${userId}`)
+    fetch(`/api/users/${userId}`)
         .then(response => response.json())
         .then(data => {
             document.getElementById('user-id').value = data.id;

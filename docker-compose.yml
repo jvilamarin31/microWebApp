@@ -1,0 +1,147 @@
+# ============================================================
+#  microWebApp - Orquestacion con Docker Compose (Parte 2)
+#  Un MySQL independiente por microservicio + red interna.
+#  Levantar: cp .env.example .env && docker compose up --build -d
+# ============================================================
+
+name: microwebapp
+
+services:
+
+  # ----------------------- Bases de datos -----------------------
+  users_db:
+    image: mysql:8.0
+    container_name: users_db
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root}
+      MYSQL_DATABASE: users_db
+      MYSQL_USER: ${DB_USER:-app}
+      MYSQL_PASSWORD: ${DB_PASSWORD:-app_password}
+    volumes:
+      - users_db_data:/var/lib/mysql
+      - ./microUsers/db/users_db.sql:/docker-entrypoint-initdb.d/01-users_db.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uroot -p$$MYSQL_ROOT_PASSWORD --silent"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    networks:
+      - app_network
+
+  products_db:
+    image: mysql:8.0
+    container_name: products_db
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root}
+      MYSQL_DATABASE: products_db
+      MYSQL_USER: ${DB_USER:-app}
+      MYSQL_PASSWORD: ${DB_PASSWORD:-app_password}
+    volumes:
+      - products_db_data:/var/lib/mysql
+      - ./microProducts/db/products_db.sql:/docker-entrypoint-initdb.d/01-products_db.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uroot -p$$MYSQL_ROOT_PASSWORD --silent"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    networks:
+      - app_network
+
+  orders_db:
+    image: mysql:8.0
+    container_name: orders_db
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root}
+      MYSQL_DATABASE: orders_db
+      MYSQL_USER: ${DB_USER:-app}
+      MYSQL_PASSWORD: ${DB_PASSWORD:-app_password}
+    volumes:
+      - orders_db_data:/var/lib/mysql
+      - ./microOrders/db/orders_db.sql:/docker-entrypoint-initdb.d/01-orders_db.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uroot -p$$MYSQL_ROOT_PASSWORD --silent"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    networks:
+      - app_network
+
+  # ----------------------- Microservicios -----------------------
+  microusers:
+    build: ./microUsers
+    container_name: microusers
+    environment:
+      MYSQL_HOST: users_db
+      MYSQL_USER: ${DB_USER:-app}
+      MYSQL_PASSWORD: ${DB_PASSWORD:-app_password}
+      MYSQL_DB: users_db
+    depends_on:
+      users_db:
+        condition: service_healthy
+    networks:
+      - app_network
+    # Sin puertos publicados: solo accesible por la red interna
+
+  microproducts:
+    build: ./microProducts
+    container_name: microproducts
+    environment:
+      MYSQL_HOST: products_db
+      MYSQL_USER: ${DB_USER:-app}
+      MYSQL_PASSWORD: ${DB_PASSWORD:-app_password}
+      MYSQL_DB: products_db
+    depends_on:
+      products_db:
+        condition: service_healthy
+    networks:
+      - app_network
+    # Sin puertos publicados
+
+  microorders:
+    build: ./microOrders
+    container_name: microorders
+    environment:
+      MYSQL_HOST: orders_db
+      MYSQL_USER: ${DB_USER:-app}
+      MYSQL_PASSWORD: ${DB_PASSWORD:-app_password}
+      MYSQL_DB: orders_db
+      # URL del servicio de productos vista por microOrders (servidor a servidor)
+      PRODUCTS_SERVICE_URL: http://microproducts:5003
+      SECRET_KEY: ${SECRET_KEY:-secret123}
+    depends_on:
+      orders_db:
+        condition: service_healthy
+    networks:
+      - app_network
+    # Sin puertos publicados
+
+  # --------------------------- Frontend ---------------------------
+  frontend:
+    build: ./frontend
+    container_name: frontend
+    ports:
+      - "${FRONTEND_PORT:-8080}:5001"
+    environment:
+      # URLs usadas por el proxy del frontend (servidor a servidor, red interna)
+      USERS_SERVICE_URL: http://microusers:5002
+      PRODUCTS_SERVICE_URL: http://microproducts:5003
+      ORDERS_SERVICE_URL: http://microorders:5004
+      SECRET_KEY: ${SECRET_KEY:-secret123}
+    depends_on:
+      - microusers
+      - microproducts
+      - microorders
+    networks:
+      - app_network
+
+networks:
+  app_network:
+    driver: bridge
+
+volumes:
+  users_db_data:
+  products_db_data:
+  orders_db_data:
