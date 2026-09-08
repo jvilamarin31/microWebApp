@@ -12,6 +12,7 @@ services:
   users_db:
     image: mysql:8.0
     container_name: users_db
+    command: --innodb-buffer-pool-size=64M --innodb-log-buffer-size=8M --max-connections=50
     environment:
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root}
       MYSQL_DATABASE: users_db
@@ -22,16 +23,17 @@ services:
       - ./microUsers/db/users_db.sql:/docker-entrypoint-initdb.d/01-users_db.sql:ro
     healthcheck:
       test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uroot -p$$MYSQL_ROOT_PASSWORD --silent"]
-      interval: 10s
-      timeout: 5s
-      retries: 10
-      start_period: 30s
+      interval: 3s
+      timeout: 3s
+      retries: 30
+      start_period: 5s
     networks:
       - app_network
 
   products_db:
     image: mysql:8.0
     container_name: products_db
+    command: --innodb-buffer-pool-size=64M --innodb-log-buffer-size=8M --max-connections=50
     environment:
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root}
       MYSQL_DATABASE: products_db
@@ -42,16 +44,17 @@ services:
       - ./microProducts/db/products_db.sql:/docker-entrypoint-initdb.d/01-products_db.sql:ro
     healthcheck:
       test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uroot -p$$MYSQL_ROOT_PASSWORD --silent"]
-      interval: 10s
-      timeout: 5s
-      retries: 10
-      start_period: 30s
+      interval: 3s
+      timeout: 3s
+      retries: 30
+      start_period: 5s
     networks:
       - app_network
 
   orders_db:
     image: mysql:8.0
     container_name: orders_db
+    command: --innodb-buffer-pool-size=64M --innodb-log-buffer-size=8M --max-connections=50
     environment:
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root}
       MYSQL_DATABASE: orders_db
@@ -62,10 +65,10 @@ services:
       - ./microOrders/db/orders_db.sql:/docker-entrypoint-initdb.d/01-orders_db.sql:ro
     healthcheck:
       test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uroot -p$$MYSQL_ROOT_PASSWORD --silent"]
-      interval: 10s
-      timeout: 5s
-      retries: 10
-      start_period: 30s
+      interval: 3s
+      timeout: 3s
+      retries: 30
+      start_period: 5s
     networks:
       - app_network
 
@@ -160,6 +163,11 @@ services:
       USERS_SERVICE_URL: http://microusers:5002
       PRODUCTS_SERVICE_URL: http://microproducts:5003
       ORDERS_SERVICE_URL: http://microorders:5004
+      CONSUL_HOST: consul
+      CONSUL_PORT: 8500
+      SERVICE_NAME: frontend
+      SERVICE_HOST: frontend
+      SERVICE_PORT: 5001
       SECRET_KEY: ${SECRET_KEY:-secret123}
     depends_on:
       - microusers
