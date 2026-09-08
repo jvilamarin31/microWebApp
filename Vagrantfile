@@ -10,7 +10,6 @@ Vagrant.configure("2") do |config|
     servidorWeb.vm.provision "file", source: "microUsers", destination: "/home/vagrant/microUsers"
     servidorWeb.vm.provision "file", source: "microProducts", destination: "/home/vagrant/microProducts"
     servidorWeb.vm.provision "file", source: "microOrders", destination: "/home/vagrant/microOrders"
-    servidorWeb.vm.provision "file", source: "init.sql", destination: "/home/vagrant/init.sql"
     servidorWeb.vm.provision "shell", path: "script.sh"
     servidorWeb.vm.hostname = "servidorWeb"
   end

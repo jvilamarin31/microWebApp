@@ -10,9 +10,11 @@ sudo apt update
 sudo apt install mysql-server -y
 sudo systemctl start mysql.service
 
-#Create and fill Database
-echo "Creating and filling database"
-sudo mysql -h localhost -u root -proot < /home/vagrant/init.sql
+#Create and fill each microservice database
+echo "Creating and filling databases"
+sudo mysql -h localhost -u root -proot < /home/vagrant/microUsers/db/users_db.sql
+sudo mysql -h localhost -u root -proot < /home/vagrant/microProducts/db/products_db.sql
+sudo mysql -h localhost -u root -proot < /home/vagrant/microOrders/db/orders_db.sql
 
 #Adding permissions to remote access
 echo "Adding permissions to remote access"
@@ -25,3 +27,5 @@ pip3 install Flask==2.3.3
 pip3 install flask-cors
 pip3 install Flask-MySQLdb
 pip install Flask-SQLAlchemy
+pip3 install requests
+pip3 install python-dotenv
