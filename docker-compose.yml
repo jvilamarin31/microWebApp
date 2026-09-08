@@ -160,11 +160,6 @@ services:
       USERS_SERVICE_URL: http://microusers:5002
       PRODUCTS_SERVICE_URL: http://microproducts:5003
       ORDERS_SERVICE_URL: http://microorders:5004
-      CONSUL_HOST: consul
-      CONSUL_PORT: 8500
-      SERVICE_NAME: frontend
-      SERVICE_HOST: frontend
-      SERVICE_PORT: 5001
       SECRET_KEY: ${SECRET_KEY:-secret123}
     depends_on:
       - microusers

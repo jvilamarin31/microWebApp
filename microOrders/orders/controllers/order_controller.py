@@ -2,27 +2,102 @@ from flask import Blueprint, request, jsonify, session, current_app
 from db.db import db
 from orders.models.order_model import Order, OrderItem
 from decimal import Decimal
+import os
+import time
+import threading
+import atexit
 import requests
-from consul_service import discover_service
 
 
 order_controller = Blueprint('order_controller', __name__)
 
+# Configuración de Consul
+CONSUL_HOST = os.getenv('CONSUL_HOST', 'consul')
+CONSUL_PORT = os.getenv('CONSUL_PORT', '8500')
+SERVICE_NAME = os.getenv('SERVICE_NAME', 'orders')
+SERVICE_HOST = os.getenv('SERVICE_HOST', 'microorders')
+SERVICE_PORT = int(os.getenv('SERVICE_PORT', '5004'))
+SERVICE_ID = f"{SERVICE_NAME}-{SERVICE_PORT}"
+
+
+@order_controller.route('/health', methods=['GET'])
+def health():
+    return jsonify({
+        'status': 'healthy',
+        'service': SERVICE_NAME,
+        'host': SERVICE_HOST,
+        'port': SERVICE_PORT
+    }), 200
+
+
+def register_in_consul():
+    url = f"http://{CONSUL_HOST}:{CONSUL_PORT}/v1/agent/service/register"
+    payload = {
+        "ID": SERVICE_ID,
+        "Name": SERVICE_NAME,
+        "Address": SERVICE_HOST,
+        "Port": SERVICE_PORT,
+        "Check": {
+            "HTTP": f"http://{SERVICE_HOST}:{SERVICE_PORT}/health",
+            "Interval": "10s",
+            "Timeout": "3s",
+            "DeregisterCriticalServiceAfter": "1m"
+        }
+    }
+    time.sleep(2)
+    for attempt in range(1, 15):
+        try:
+            resp = requests.put(url, json=payload, timeout=3)
+            if resp.status_code == 200:
+                print(f"[Consul] Microservicio '{SERVICE_NAME}' registrado exitosamente en Consul ({SERVICE_HOST}:{SERVICE_PORT})")
+                break
+        except Exception:
+            time.sleep(2)
+
+
+def deregister_from_consul():
+    try:
+        url = f"http://{CONSUL_HOST}:{CONSUL_PORT}/v1/agent/service/deregister/{SERVICE_ID}"
+        requests.put(url, timeout=3)
+        print(f"[Consul] Microservicio '{SERVICE_NAME}' desregistrado de Consul.")
+    except Exception:
+        pass
+
+
+threading.Thread(target=register_in_consul, daemon=True).start()
+atexit.register(deregister_from_consul)
+
 
 def products_service_url():
+    """Descubre dinámicamente el servicio de productos a través de Consul."""
+    try:
+        consul_url = f"http://{CONSUL_HOST}:{CONSUL_PORT}/v1/health/service/products?passing"
+        resp = requests.get(consul_url, timeout=3)
+        if resp.status_code == 200:
+            services = resp.json()
+            if services:
+                entry = services[0]['Service']
+                address = entry.get('Address')
+                port = entry.get('Port')
+                discovered_url = f"http://{address}:{port}"
+                print(f"[Consul Discovery] Servicio 'products' descubierto en {discovered_url}")
+                return discovered_url
+            else:
+                print("[Consul Discovery] Advertencia: No hay instancias de 'products' saludables en Consul.")
+    except Exception as e:
+        print(f"[Consul Discovery] Error consultando Consul: {e}")
+
+    # Fallback si Consul no está accesible
     fallback = current_app.config.get('PRODUCTS_SERVICE_URL')
     if fallback:
-        fallback = fallback.rstrip('/')
-    url = discover_service('products', fallback_url=fallback)
-    if url:
-        return url.rstrip('/')
+        return fallback.rstrip('/')
     return None
 
 
 def restore_stock(applied):
     base = products_service_url()
     if not base:
-        print('No se pudo resolver la URL del servicio de productos para restaurar stock')
+        print('[microOrders] No se pudo resolver URL de productos para restaurar stock')
         return
     for product_id, quantity in reversed(applied):
         try:
@@ -99,7 +174,6 @@ def create_order():
 
     base = products_service_url()
     if not base:
-        print("[microOrders] Error: No se pudo descubrir el servicio de productos en Consul.")
         return jsonify({'message': 'Servicio de productos no disponible'}), 500
 
     # 1. Consultar precio y existencias al servicio de Productos

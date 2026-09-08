@@ -51,3 +51,4 @@ if [ -f /home/vagrant/.env.example ] && [ ! -f /home/vagrant/.env ]; then
   cp /home/vagrant/.env.example /home/vagrant/.env
   chown vagrant:vagrant /home/vagrant/.env
 fi
+

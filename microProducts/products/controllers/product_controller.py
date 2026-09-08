@@ -1,9 +1,70 @@
 from flask import Blueprint, request, jsonify
 from db.db import db
 from products.models.product_model import Products
+import os
+import time
+import threading
+import atexit
+import requests
 
 
 product_controller = Blueprint('product_controller', __name__)
+
+# Configuración de Consul
+CONSUL_HOST = os.getenv('CONSUL_HOST', 'consul')
+CONSUL_PORT = os.getenv('CONSUL_PORT', '8500')
+SERVICE_NAME = os.getenv('SERVICE_NAME', 'products')
+SERVICE_HOST = os.getenv('SERVICE_HOST', 'microproducts')
+SERVICE_PORT = int(os.getenv('SERVICE_PORT', '5003'))
+SERVICE_ID = f"{SERVICE_NAME}-{SERVICE_PORT}"
+
+
+@product_controller.route('/health', methods=['GET'])
+def health():
+    return jsonify({
+        'status': 'healthy',
+        'service': SERVICE_NAME,
+        'host': SERVICE_HOST,
+        'port': SERVICE_PORT
+    }), 200
+
+
+def register_in_consul():
+    url = f"http://{CONSUL_HOST}:{CONSUL_PORT}/v1/agent/service/register"
+    payload = {
+        "ID": SERVICE_ID,
+        "Name": SERVICE_NAME,
+        "Address": SERVICE_HOST,
+        "Port": SERVICE_PORT,
+        "Check": {
+            "HTTP": f"http://{SERVICE_HOST}:{SERVICE_PORT}/health",
+            "Interval": "10s",
+            "Timeout": "3s",
+            "DeregisterCriticalServiceAfter": "1m"
+        }
+    }
+    time.sleep(2)
+    for attempt in range(1, 15):
+        try:
+            resp = requests.put(url, json=payload, timeout=3)
+            if resp.status_code == 200:
+                print(f"[Consul] Microservicio '{SERVICE_NAME}' registrado exitosamente en Consul ({SERVICE_HOST}:{SERVICE_PORT})")
+                break
+        except Exception:
+            time.sleep(2)
+
+
+def deregister_from_consul():
+    try:
+        url = f"http://{CONSUL_HOST}:{CONSUL_PORT}/v1/agent/service/deregister/{SERVICE_ID}"
+        requests.put(url, timeout=3)
+        print(f"[Consul] Microservicio '{SERVICE_NAME}' desregistrado de Consul.")
+    except Exception:
+        pass
+
+
+threading.Thread(target=register_in_consul, daemon=True).start()
+atexit.register(deregister_from_consul)
 
 
 def product_to_dict(product):
