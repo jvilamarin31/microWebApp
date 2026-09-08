@@ -1,5 +1,8 @@
+const PRODUCTS_SERVICE_URL = window.PRODUCTS_SERVICE_URL || 'http://localhost:5003';
+const ORDERS_SERVICE_URL = window.ORDERS_SERVICE_URL || 'http://localhost:5004';
+
 function getProducts() {
-    fetch('http://192.168.80.3:5003/api/products', {
+    fetch(`${PRODUCTS_SERVICE_URL}/api/products`, {
      method: 'GET',
      headers: {
         'Content-Type': 'application/json'
@@ -81,7 +84,7 @@ function createProduct() {
         quantity: document.getElementById('quantity').value
     };
 
-    fetch('http://192.168.80.3:5003/api/products', {
+    fetch(`${PRODUCTS_SERVICE_URL}/api/products`, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
@@ -116,7 +119,7 @@ function updateProduct() {
         quantity: document.getElementById('quantity').value
     };
 
-    fetch(`http://192.168.80.3:5003/api/products/${productId}`, {
+    fetch(`${PRODUCTS_SERVICE_URL}/api/products/${productId}`, {
         method: 'PUT',
         headers: {
             'Content-Type': 'application/json',
@@ -131,12 +134,14 @@ function updateProduct() {
     })
     .then(data => {
         // Handle success
-        console.log(data);
-        // Optionally, redirect to another page or show a success message
+        console.log('Product updated successfully:', data);
+        // Redirigir al listado tras guardar los cambios
+        window.location.href = '/products';
     })
     .catch(error => {
         // Handle error
         console.error('Error:', error);
+        alert('No se pudo actualizar el producto. Intenta nuevamente.');
     });
 }
 
@@ -145,7 +150,7 @@ function updateProduct() {
 function deleteProduct(productId) {
     console.log('Deleting product with ID:', productId);
     if (confirm('Are you sure you want to delete this product?')) {
-        fetch(`http://192.168.80.3:5003/api/products/${productId}`, {
+        fetch(`${PRODUCTS_SERVICE_URL}/api/products/${productId}`, {
             method: 'DELETE',
         })
         .then(response => {
@@ -180,7 +185,7 @@ function orderProducts() {
 	    //
       var productId = row.querySelector('td:nth-child(1)').textContent;
       //const productId = row.id.textContent; // Extraer el ID del producto del atributo id de la fila
-      selectedProducts.push({ id: productId, quantity });
+      selectedProducts.push({ product_id: parseInt(productId, 10), quantity });
     }
   });
 
@@ -190,17 +195,13 @@ function orderProducts() {
     return;
   }
 
-  // Preparar los datos de la orden
+  // Preparar los datos de la orden (el usuario se toma de la sesion en microOrders)
   const orderData = {
-    user: {
-      name: sessionStorage.getItem('username'),
-      email: sessionStorage.getItem('email')
-    },
     products: selectedProducts
   };
 
   // Enviar los datos de la orden al endpoint
-  fetch('http://192.168.80.3:5004/api/orders', {
+  fetch(`${ORDERS_SERVICE_URL}/api/orders`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(orderData),
@@ -216,7 +217,7 @@ function orderProducts() {
     } else {
       console.error('Error al crear la orden:', data.message);
       // Mostrar un mensaje de error al usuario
-      alert('Error al crear la orden. Por favor, intenta nuevamente.');
+      alert('Error al crear la orden: ' + (data.message || 'Intenta nuevamente.'));
     }
   })
   .catch(error => {

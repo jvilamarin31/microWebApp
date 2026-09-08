@@ -26,10 +26,15 @@
             <label for="quantity">Quantity</label>
             <input type="text" class="form-control" id="quantity" required>
         </div>
-	<button type="submit" class="btn btn-primary" onclick="updateProduct()">Save Changes</button>
+	<button type="submit" class="btn btn-primary">Save Changes</button>
     </form>
 </div>
 
+<script>
+  window.USERS_SERVICE_URL = "{{ USERS_SERVICE_URL }}";
+  window.PRODUCTS_SERVICE_URL = "{{ PRODUCTS_SERVICE_URL }}";
+  window.ORDERS_SERVICE_URL = "{{ ORDERS_SERVICE_URL }}";
+</script>
 <script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
 <script src="/static/scriptProducts.js"></script>
 <script>
@@ -38,7 +43,7 @@
     //const productId = urlParams.get('id');
     const productId = {{id}}    
     // Obtener la información del usuario y llenar el formulario
-    fetch(`http://192.168.80.3:5003/api/products/${productId}`)
+    fetch(`${PRODUCTS_SERVICE_URL}/api/products/${productId}`)
         .then(response => response.json())
         .then(data => {
             document.getElementById('product-id').value = data.id;
@@ -47,6 +52,12 @@
             document.getElementById('quantity').value = data.quantity;
         })
         .catch(error => console.error('Error:', error));
+
+    // Interceptar el submit del formulario: enviar vía PUT sin recargar la página
+    document.getElementById('edit-product-form').addEventListener('submit', function(event) {
+        event.preventDefault();
+        updateProduct();
+    });
 </script>
 
 </body>

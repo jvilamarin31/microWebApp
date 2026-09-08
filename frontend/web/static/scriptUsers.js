@@ -1,6 +1,7 @@
+const USERS_SERVICE_URL = window.USERS_SERVICE_URL || 'http://localhost:5002';
+
 function getUsers() {
-    //fetch('http://192.168.80.3:5002/api/users')
-    fetch('http://192.168.80.3:5002/api/users', {
+    fetch(`${USERS_SERVICE_URL}/api/users`, {
     method: 'GET',
     headers: {
       'Content-Type': 'application/json'
@@ -72,7 +73,7 @@ function createUser() {
         password: document.getElementById('password').value
     };
 
-    fetch('http://192.168.80.3:5002/api/users', {
+    fetch(`${USERS_SERVICE_URL}/api/users`, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
@@ -104,7 +105,7 @@ function updateUser() {
         password: document.getElementById('password').value
     };
 
-    fetch(`http://192.168.80.3:5002/api/users/${userId}`, {
+    fetch(`${USERS_SERVICE_URL}/api/users/${userId}`, {
         method: 'PUT',
         headers: {
             'Content-Type': 'application/json',
@@ -119,12 +120,14 @@ function updateUser() {
     })
     .then(data => {
         // Handle success
-        console.log(data);
-        // Optionally, redirect to another page or show a success message
+        console.log('User updated successfully:', data);
+        // Redirigir al listado tras guardar los cambios
+        window.location.href = '/users';
     })
     .catch(error => {
         // Handle error
         console.error('Error:', error);
+        alert('No se pudo actualizar el usuario. Intenta nuevamente.');
     });
 }
 
@@ -132,7 +135,7 @@ function updateUser() {
 function deleteUser(userId) {
     console.log('Deleting user with ID:', userId);
     if (confirm('Are you sure you want to delete this user?')) {
-        fetch(`http://192.168.80.3:5002/api/users/${userId}`, {
+        fetch(`${USERS_SERVICE_URL}/api/users/${userId}`, {
             method: 'DELETE',
         })
         .then(response => {
@@ -161,7 +164,7 @@ function handleLogin(event) {
   const username = document.getElementById('username').value;
   const password = document.getElementById('password').value;
 
-  fetch('http://192.168.80.3:5002/api/login', {
+  fetch(`${USERS_SERVICE_URL}/api/login`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json'

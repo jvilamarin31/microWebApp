@@ -80,6 +80,11 @@
     <button type="button" onclick="getUsers()">Get Users</button>
 </div>
 
+<script>
+  window.USERS_SERVICE_URL = "{{ USERS_SERVICE_URL }}";
+  window.PRODUCTS_SERVICE_URL = "{{ PRODUCTS_SERVICE_URL }}";
+  window.ORDERS_SERVICE_URL = "{{ ORDERS_SERVICE_URL }}";
+</script>
 <script src="static/scriptUsers.js"></script>
 </body>
 </html>

@@ -7,6 +7,16 @@ CORS(app, supports_credentials=True)
 app.config.from_object('config.Config')
 
 
+# Inyecta las URLs de los microservicios a todos los templates
+@app.context_processor
+def inject_service_urls():
+    return {
+        'USERS_SERVICE_URL': app.config['USERS_SERVICE_URL'],
+        'PRODUCTS_SERVICE_URL': app.config['PRODUCTS_SERVICE_URL'],
+        'ORDERS_SERVICE_URL': app.config['ORDERS_SERVICE_URL']
+    }
+
+
 # Ruta para renderizar el template index.html
 @app.route('/')
 def index():
