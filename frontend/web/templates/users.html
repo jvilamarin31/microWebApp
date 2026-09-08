@@ -39,6 +39,23 @@
     <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarCollapse" aria-controls="navbarCollapse" aria-expanded="false" aria-label="Toggle navigation">
         <span class="navbar-toggler-icon"></span>
     </button>
+
+    <div class="collapse navbar-collapse" id="navbarCollapse">
+        <ul class="navbar-nav ml-auto">
+            <li class="nav-item">
+                <a class="nav-link" href="/products">Product Management</a>
+            </li>
+            <li class="nav-item active">
+                <a class="nav-link" href="/users">User Management</a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" href="/orders">Order Management</a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" href="#" onclick="logout()">Logout</a>
+            </li>
+        </ul>
+    </div>
 </nav>
 
 <div class="container">
@@ -80,6 +97,7 @@
     <button type="button" onclick="getUsers()">Get Users</button>
 </div>
 
+<script src="/static/scriptCommon.js"></script>
 <script src="static/scriptUsers.js"></script>
 </body>
 </html>

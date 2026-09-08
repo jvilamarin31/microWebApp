@@ -99,9 +99,13 @@ function updateUser() {
     var data = {
         name: document.getElementById('name').value,
         email: document.getElementById('email').value,
-        username: document.getElementById('username').value,
-        password: document.getElementById('password').value
+        username: document.getElementById('username').value
     };
+    // Solo se envia la contrasena si el usuario escribio una nueva
+    var password = document.getElementById('password').value;
+    if (password) {
+        data.password = password;
+    }
 
     fetch(`/api/users/${userId}`, {
         method: 'PUT',

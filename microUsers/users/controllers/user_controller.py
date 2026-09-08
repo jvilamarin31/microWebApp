@@ -42,7 +42,9 @@ def update_user(user_id):
     user.name = data['name']
     user.email = data['email']
     user.username = data['username']
-    user.password = data['password']
+    # Solo se actualiza la contrasena si se envia un valor no vacio
+    if data.get('password'):
+        user.password = data['password']
     db.session.commit()
     return jsonify({'message': 'User updated successfully'})
 
@@ -84,3 +86,9 @@ def login():
     print("En session: ",session)
 
     return jsonify({'message': 'Login successful'})
+
+
+@user_controller.route('/api/logout', methods=['POST'])
+def logout():
+    session.clear()
+    return jsonify({'message': 'Logout successful'})

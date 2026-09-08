@@ -207,10 +207,14 @@ function orderProducts() {
   .then(response => response.json())
   .then(data => {
     if (data.message === 'Orden creada exitosamente') {
-      console.log('Orden creada exitosamente!');
+      console.log('Orden creada exitosamente:', data);
       // Mostrar un mensaje de confirmación al usuario
-      alert('¡Orden creada exitosamente!');
-      // Actualizar la interfaz de usuario para reflejar los cambios (opcional)
+      alert('¡Orden creada exitosamente! (Orden #' + data.order_id + ', total $' + Number(data.total).toFixed(2) + ')');
+      // Refrescar el listado para ver el stock descontado
+      getProducts();
+      if (confirm('¿Quieres ver tus órdenes?')) {
+        window.location.href = '/orders';
+      }
     } else {
       console.error('Error al crear la orden:', data.message);
       // Mostrar un mensaje de error al usuario
