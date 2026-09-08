@@ -14,7 +14,7 @@ Proyecto académico de **Computación en la Nube** (especificación completa en 
 - **Persistencia desacoplada:** cada microservicio usa su propia base de datos (`users_db`, `products_db`, `orders_db`).
 - **Frontend como API gateway:** el navegador solo habla con el frontend (rutas relativas `/api/...`); el frontend reenvía cada petición al microservicio correspondiente por variables de entorno (adiós a IPs/puertos hardcodeados).
 - **Arranque reproducible:** todo el sistema levanta con un solo `docker compose up --build -d`.
-- Descubrimiento de servicios con **Consul** (previsto en la Parte 3).
+- **Descubrimiento y registro con Consul:** registro automático al iniciar cada microservicio, endpoints `/health` con sondeo periódico, UI en el puerto 8500 y descubrimiento dinámico en `microOrders` (sin URL fija de productos).
 
 ## Stack
 
@@ -25,8 +25,9 @@ Proyecto académico de **Computación en la Nube** (especificación completa en 
 | Flask-SQLAlchemy / Flask-Cors | ORM y CORS |
 | requests / python-dotenv | Proxy HTTP y carga de `.env` |
 | MySQL | 8.0 (una instancia/BD por microservicio) |
+| HashiCorp Consul | 1.16 (Registro, Health Checks y Service Discovery) |
 | Docker / Docker Compose | Empaquetado y orquestación |
-| Vagrant (opcional) | VM Ubuntu 22.04 de desarrollo |
+| Vagrant (opcional) | VM Ubuntu 22.04 de desarrollo con Docker |
 
 ## Estructura del proyecto
 
@@ -276,6 +277,52 @@ curl -s -b cookies.txt -X POST http://localhost:8080/api/orders \
 ```
 
 Productos semilla: Laptop (3500.00, 10 uds), Mouse (25.50, 50 uds), Teclado (120.00, 30 uds).
+
+## Descubrimiento y Resiliencia con Consul (Parte 3)
+
+### 1. Interfaz Web (UI) de Consul
+Consul expone su consola web en:
+👉 **<http://localhost:8500>** (o `http://192.168.56.3:8500` desde la VM).
+
+Allí verás registrados los servicios:
+- `users` (puerto 5002, health check cada 10s en `/health`)
+- `products` (puerto 5003, health check cada 10s en `/health`)
+- `orders` (puerto 5004, health check cada 10s en `/health`)
+- `frontend` (puerto 5001, health check cada 10s en `/health`)
+
+### 2. Verificar estado de salud por API HTTP
+```bash
+# Consultar solo instancias saludables del servicio products
+curl -s http://localhost:8500/v1/health/service/products?passing=true
+```
+
+### 3. Descubrimiento dinámico en acción
+Al crear una orden, `microOrders` no tiene una URL fija de `microProducts`; consulta a Consul, obtiene la dirección/puerto y emite un log en consola:
+```bash
+docker compose logs -f microorders
+# Output:
+# [Consul Discovery] Servicio 'products' descubierto dinámicamente en http://microproducts:5003
+```
+
+### 4. Demostración de Resiliencia para la Sustentación
+Para evidenciar ante el profesor el comportamiento ante fallos:
+1. **Detener la instancia de productos:**
+   ```bash
+   docker compose stop microproducts
+   ```
+2. **Revisar Consul:** En la UI de Consul (<http://localhost:8500>), el servicio `products` pasa inmediatamente a estado **Failing / Critical** (rojo).
+3. **Intentar crear una orden:**
+   ```bash
+   curl -s -b cookies.txt -X POST http://localhost:8080/api/orders \
+     -H 'Content-Type: application/json' \
+     -d '{"products":[{"product_id":1,"quantity":1}]}'
+   # Devuelve HTTP 500: {"message": "Servicio de productos no disponible"}
+   ```
+4. **Reactivar la instancia de productos:**
+   ```bash
+   docker compose start microproducts
+   ```
+5. **Observar recuperación:** Tras unos segundos, Consul vuelve a marcar `products` en verde (**Passing**). Al reenviar la petición de orden, `microOrders` la descubre nuevamente y la orden se crea exitosamente con HTTP 201 sin haber reiniciado `microorders`.
 
 ## Persistencia (Docker)
 

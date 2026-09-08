@@ -3,17 +3,27 @@ from db.db import db
 from orders.models.order_model import Order, OrderItem
 from decimal import Decimal
 import requests
+from consul_service import discover_service
 
 
 order_controller = Blueprint('order_controller', __name__)
 
 
 def products_service_url():
-    return current_app.config['PRODUCTS_SERVICE_URL'].rstrip('/')
+    fallback = current_app.config.get('PRODUCTS_SERVICE_URL')
+    if fallback:
+        fallback = fallback.rstrip('/')
+    url = discover_service('products', fallback_url=fallback)
+    if url:
+        return url.rstrip('/')
+    return None
 
 
 def restore_stock(applied):
     base = products_service_url()
+    if not base:
+        print('No se pudo resolver la URL del servicio de productos para restaurar stock')
+        return
     for product_id, quantity in reversed(applied):
         try:
             requests.post(f'{base}/api/products/{product_id}/increment',
@@ -88,6 +98,9 @@ def create_order():
         quantities[product_id] = quantities.get(product_id, 0) + quantity
 
     base = products_service_url()
+    if not base:
+        print("[microOrders] Error: No se pudo descubrir el servicio de productos en Consul.")
+        return jsonify({'message': 'Servicio de productos no disponible'}), 500
 
     # 1. Consultar precio y existencias al servicio de Productos
     lines = []

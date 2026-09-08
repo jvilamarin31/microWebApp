@@ -45,3 +45,9 @@ sudo apt update -y
 sudo apt install docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin -y
 sudo systemctl enable --now docker
 sudo usermod -aG docker vagrant
+
+# Preparar archivo .env para docker-compose en /home/vagrant
+if [ -f /home/vagrant/.env.example ] && [ ! -f /home/vagrant/.env ]; then
+  cp /home/vagrant/.env.example /home/vagrant/.env
+  chown vagrant:vagrant /home/vagrant/.env
+fi

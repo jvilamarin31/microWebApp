@@ -69,6 +69,16 @@ services:
     networks:
       - app_network
 
+  # ----------------------- Descubrimiento (Consul) -----------------------
+  consul:
+    image: hashicorp/consul:1.16
+    container_name: consul
+    command: agent -dev -client=0.0.0.0
+    ports:
+      - "${CONSUL_PORT:-8500}:8500"
+    networks:
+      - app_network
+
   # ----------------------- Microservicios -----------------------
   microusers:
     build: ./microUsers
@@ -78,9 +88,16 @@ services:
       MYSQL_USER: ${DB_USER:-app}
       MYSQL_PASSWORD: ${DB_PASSWORD:-app_password}
       MYSQL_DB: users_db
+      CONSUL_HOST: consul
+      CONSUL_PORT: 8500
+      SERVICE_NAME: users
+      SERVICE_HOST: microusers
+      SERVICE_PORT: 5002
     depends_on:
       users_db:
         condition: service_healthy
+      consul:
+        condition: service_started
     networks:
       - app_network
     # Sin puertos publicados: solo accesible por la red interna
@@ -93,9 +110,16 @@ services:
       MYSQL_USER: ${DB_USER:-app}
       MYSQL_PASSWORD: ${DB_PASSWORD:-app_password}
       MYSQL_DB: products_db
+      CONSUL_HOST: consul
+      CONSUL_PORT: 8500
+      SERVICE_NAME: products
+      SERVICE_HOST: microproducts
+      SERVICE_PORT: 5003
     depends_on:
       products_db:
         condition: service_healthy
+      consul:
+        condition: service_started
     networks:
       - app_network
     # Sin puertos publicados
@@ -108,12 +132,19 @@ services:
       MYSQL_USER: ${DB_USER:-app}
       MYSQL_PASSWORD: ${DB_PASSWORD:-app_password}
       MYSQL_DB: orders_db
-      # URL del servicio de productos vista por microOrders (servidor a servidor)
-      PRODUCTS_SERVICE_URL: http://microproducts:5003
+      CONSUL_HOST: consul
+      CONSUL_PORT: 8500
+      SERVICE_NAME: orders
+      SERVICE_HOST: microorders
+      SERVICE_PORT: 5004
       SECRET_KEY: ${SECRET_KEY:-secret123}
+      # URL fallback opcional en caso de no conectar a Consul
+      PRODUCTS_SERVICE_URL: http://microproducts:5003
     depends_on:
       orders_db:
         condition: service_healthy
+      consul:
+        condition: service_started
     networks:
       - app_network
     # Sin puertos publicados
@@ -129,11 +160,17 @@ services:
       USERS_SERVICE_URL: http://microusers:5002
       PRODUCTS_SERVICE_URL: http://microproducts:5003
       ORDERS_SERVICE_URL: http://microorders:5004
+      CONSUL_HOST: consul
+      CONSUL_PORT: 8500
+      SERVICE_NAME: frontend
+      SERVICE_HOST: frontend
+      SERVICE_PORT: 5001
       SECRET_KEY: ${SECRET_KEY:-secret123}
     depends_on:
       - microusers
       - microproducts
       - microorders
+      - consul
     networks:
       - app_network
 

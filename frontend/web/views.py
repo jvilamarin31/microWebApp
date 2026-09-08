@@ -9,6 +9,14 @@ CORS(app, supports_credentials=True)
 app.config.from_object('config.Config')
 
 
+import sys
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+from consul_service import register_service, discover_service
+
+# Registrar endpoint /health y auto-registro en Consul
+register_service(app, service_name_default='frontend', service_port_default=5001, service_host_default='frontend')
+
+
 def login_required(view):
     @wraps(view)
     def wrapped(*args, **kwargs):
@@ -20,13 +28,16 @@ def login_required(view):
 
 def resolve_service(api_path):
     # El frontend actua como puerta de entrada (API Gateway): reenvia /api/* al
-    # microservicio correspondiente segun el prefijo de la ruta.
+    # microservicio correspondiente segun el prefijo de la ruta, descubriendolo via Consul.
     if api_path.startswith('login') or api_path.startswith('logout') or api_path.startswith('users'):
-        return app.config['USERS_SERVICE_URL'].rstrip('/')
+        fallback = app.config.get('USERS_SERVICE_URL', 'http://microusers:5002').rstrip('/')
+        return discover_service('users', fallback_url=fallback)
     if api_path.startswith('products'):
-        return app.config['PRODUCTS_SERVICE_URL'].rstrip('/')
+        fallback = app.config.get('PRODUCTS_SERVICE_URL', 'http://microproducts:5003').rstrip('/')
+        return discover_service('products', fallback_url=fallback)
     if api_path.startswith('orders'):
-        return app.config['ORDERS_SERVICE_URL'].rstrip('/')
+        fallback = app.config.get('ORDERS_SERVICE_URL', 'http://microorders:5004').rstrip('/')
+        return discover_service('orders', fallback_url=fallback)
     return None
 
 
