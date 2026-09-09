@@ -42,31 +42,28 @@ def register_in_consul():
             "HTTP": f"http://{SERVICE_HOST}:{SERVICE_PORT}/health",
             "Interval": "10s",
             "Timeout": "3s",
-            "DeregisterCriticalServiceAfter": "1m"
+            "DeregisterCriticalServiceAfter": "24h"
         }
     }
     time.sleep(2)
-    for attempt in range(1, 15):
+    registered_once = False
+    while True:
         try:
             resp = requests.put(url, json=payload, timeout=3)
-            if resp.status_code == 200:
+            if resp.status_code == 200 and not registered_once:
                 print(f"[Consul] Servicio '{SERVICE_NAME}' registrado exitosamente en Consul ({SERVICE_HOST}:{SERVICE_PORT})")
-                break
+                registered_once = True
         except Exception:
-            time.sleep(2)
+            pass
+        time.sleep(20)
 
 
-def deregister_from_consul():
-    try:
-        url = f"http://{CONSUL_HOST}:{CONSUL_PORT}/v1/agent/service/deregister/{SERVICE_ID}"
-        requests.put(url, timeout=3)
-        print(f"[Consul] Servicio '{SERVICE_NAME}' desregistrado de Consul.")
-    except Exception:
-        pass
-
-
+# Iniciar registro en segundo plano al arrancar
 threading.Thread(target=register_in_consul, daemon=True).start()
-atexit.register(deregister_from_consul)
+
+# Nota: No se usa atexit deregister para que al detener el contenedor, Consul
+# detecte el fallo en /health y muestre la 'X' roja (estado critico/unhealthy).
+
 
 
 

@@ -41,32 +41,24 @@ def register_in_consul():
             "HTTP": f"http://{SERVICE_HOST}:{SERVICE_PORT}/health",
             "Interval": "10s",
             "Timeout": "3s",
-            "DeregisterCriticalServiceAfter": "1m"
+            "DeregisterCriticalServiceAfter": "24h"
         }
     }
-    # Reintentos al iniciar hasta que Consul esté listo
     time.sleep(2)
-    for attempt in range(1, 15):
+    registered_once = False
+    while True:
         try:
             resp = requests.put(url, json=payload, timeout=3)
-            if resp.status_code == 200:
+            if resp.status_code == 200 and not registered_once:
                 print(f"[Consul] Microservicio '{SERVICE_NAME}' registrado exitosamente en Consul ({SERVICE_HOST}:{SERVICE_PORT})")
-                break
+                registered_once = True
         except Exception:
-            time.sleep(2)
-
-
-def deregister_from_consul():
-    try:
-        url = f"http://{CONSUL_HOST}:{CONSUL_PORT}/v1/agent/service/deregister/{SERVICE_ID}"
-        requests.put(url, timeout=3)
-        print(f"[Consul] Microservicio '{SERVICE_NAME}' desregistrado de Consul.")
-    except Exception:
-        pass
+            pass
+        time.sleep(20)
 
 
 threading.Thread(target=register_in_consul, daemon=True).start()
-atexit.register(deregister_from_consul)
+
 
 @user_controller.route('/api/users', methods=['GET'])
 def get_users():
