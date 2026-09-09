@@ -1,3 +1,13 @@
+# INTEGRANTES
+
+Juan David Cuero Reina 
+Juan Esteban Vila Marin
+Alejandro Rodriguez Cortes
+
+
+
+
+-------
 # microWebApp
 
 Plataforma de e-commerce basada en **microservicios Flask** con persistencia desacoplada
