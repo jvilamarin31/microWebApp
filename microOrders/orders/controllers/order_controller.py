@@ -80,10 +80,6 @@ def products_service_url():
     except Exception as e:
         print(f"[Consul Discovery] Error consultando Consul: {e}")
 
-    # Fallback si Consul no está accesible
-    fallback = current_app.config.get('PRODUCTS_SERVICE_URL')
-    if fallback:
-        return fallback.rstrip('/')
     return None
 
 

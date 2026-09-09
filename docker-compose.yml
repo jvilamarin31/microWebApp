@@ -142,7 +142,7 @@ services:
       SERVICE_PORT: 5004
       SECRET_KEY: ${SECRET_KEY:-secret123}
       # URL fallback opcional en caso de no conectar a Consul
-      PRODUCTS_SERVICE_URL: http://microproducts:5003
+      #PRODUCTS_SERVICE_URL: http://microproducts:5003
     depends_on:
       orders_db:
         condition: service_healthy
