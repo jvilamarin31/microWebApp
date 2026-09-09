@@ -23,41 +23,42 @@ Proyecto académico de **Computación en la Nube** (especificación completa en 
 | Python | 3.10 |
 | Flask | 2.3.3 |
 | Flask-SQLAlchemy / Flask-Cors | ORM y CORS |
-| requests / python-dotenv | Proxy HTTP y carga de `.env` |
+| requests / python-dotenv | Proxy HTTP, llamadas a Consul y carga de `.env` |
 | MySQL | 8.0 (una instancia/BD por microservicio) |
+| HashiCorp Consul | 1.16 (Registro, health checks periódicos y descubrimiento dinámico) |
 | Docker / Docker Compose | Empaquetado y orquestación |
-| Vagrant (opcional) | VM Ubuntu 22.04 de desarrollo |
+| Vagrant (opcional) | VM Ubuntu 22.04 de desarrollo con Docker integrado |
 
 ## Estructura del proyecto
 
 ```
 microWebApp/
-├── frontend/                  # UI Flask + proxy /api/* (puerto 5001)
-│   ├── web/                   # views.py (proxy), templates/, static/
+├── frontend/                  # UI Flask + proxy /api/* + health check Consul (puerto 5001)
+│   ├── web/                   # views.py (proxy y registro en Consul), templates/, static/
 │   ├── Dockerfile
 │   └── .dockerignore
 ├── microUsers/                # Gestión de usuarios y login (puerto 5002)
-│   ├── users/                 # controllers/, models/, views.py
+│   ├── users/                 # controllers/ (user_controller con Consul), models/, views.py
 │   ├── db/users_db.sql        # Init de users_db (tabla users + juan/maria)
 │   ├── config.py, run.py
 │   ├── Dockerfile
 │   └── .dockerignore
 ├── microProducts/             # Catálogo e inventario (puerto 5003)
-│   ├── products/              # controllers/, models/, views.py
+│   ├── products/              # controllers/ (product_controller con Consul), models/, views.py
 │   ├── db/products_db.sql     # Init de products_db (3 productos de ejemplo)
 │   ├── config.py, run.py
 │   ├── Dockerfile
 │   └── .dockerignore
-├── microOrders/               # Órdenes de compra (puerto 5004)
-│   ├── orders/                # controllers/, models/, views.py
+├── microOrders/               # Órdenes de compra y descubrimiento dinámico (puerto 5004)
+│   ├── orders/                # controllers/ (order_controller con descubrimiento Consul), models/, views.py
 │   ├── db/orders_db.sql       # Init de orders_db (orders + order_items)
 │   ├── config.py, run.py
 │   ├── Dockerfile
 │   └── .dockerignore
-├── docker-compose.yml         # Orquestación completa (7 servicios + red + volúmenes)
-├── .env.example               # Variables globales para docker compose (raíz)
-├── Vagrantfile                # VM de desarrollo
-├── script.sh                  # Provisionamiento de la VM (MySQL + BD + dependencias)
+├── docker-compose.yml         # Orquestación completa (Consul + frontend + 3 microservicios + 3 MySQL)
+├── .env.example               # Variables globales para docker compose (raíz, incluye CONSUL_PORT)
+├── Vagrantfile                # VM de desarrollo (con forwarded ports 8080 y 8500 y copia de compose)
+├── script.sh                  # Provisionamiento de la VM (Docker + MySQL + preparación de .env)
 └── PROJECT_SPEC.md            # Especificación del proyecto
 ```
 
@@ -289,26 +290,87 @@ docker compose down -v          # además borra los volúmenes (BORRA los datos)
 
 ## Descubrimiento de Servicios con Consul (Parte 3)
 
-Consul corre como servicio orquestado en `docker-compose` en el puerto `8500`.
+Consul corre como servicio orquestado en `docker-compose` en el puerto `8500` (`agent -dev -client=0.0.0.0`).
+La lógica de registro, health check y descubrimiento se implementó **directamente dentro del controller de cada microservicio**, siguiendo las prácticas trabajadas en clase.
 
-- **Interfaz Web (Consul UI):** Abre en el navegador <http://localhost:8500/ui> para ver todos los servicios registrados (`users`, `products`, `orders`) con sus health checks (`/health`) en estado saludable (*passing* en verde).
-- **Descubrimiento dinámico:** Al crear una orden, `microOrders` no tiene una dirección fija; consulta en vivo a la API de Consul:
-  ```bash
-  curl -s http://localhost:8500/v1/health/service/products?passing | jq '.[].Service'
-  ```
-  y resuelve la IP y puerto activos de `microProducts`.
-- **Prueba de Resiliencia (Sustentación):**
-  1. Detén temporalmente el microservicio de productos:
-     ```bash
-     docker compose stop microproducts
-     ```
-  2. Observa en la interfaz de Consul (<http://localhost:8500>) que el servicio `products` pasa a estado crítico (rojo).
-  3. Intenta realizar una compra desde el frontend o vía API; el sistema responderá controladamente con error `500` indicando que el servicio de productos no está disponible.
-  4. Reactiva el microservicio:
-     ```bash
-     docker compose start microproducts
-     ```
-  5. En pocos segundos, Consul detecta el endpoint `/health` nuevamente y lo marca en verde (*passing*). `microOrders` lo redescubre de inmediato y las órdenes vuelven a procesarse con total normalidad.
+### 1. Arquitectura de Registro y Health Checks
+
+Cada componente expone un endpoint HTTP de salud y ejecuta un hilo en segundo plano que lo registra ante la API de Consul (`PUT /v1/agent/service/register`):
+
+| Componente | Archivo donde se implementó | Servicio en Consul | Puerto Interno | Endpoint de Salud |
+|---|---|---|---|---|
+| `microUsers` | `microUsers/users/controllers/user_controller.py` | `users` | `5002` | `GET /health` |
+| `microProducts` | `microProducts/products/controllers/product_controller.py` | `products` | `5003` | `GET /health` |
+| `microOrders` | `microOrders/orders/controllers/order_controller.py` | `orders` | `5004` | `GET /health` |
+| `frontend` | `frontend/web/views.py` | `frontend` | `5001` | `GET /health` |
+
+**Características del mecanismo de registro:**
+- **Chequeo periódico:** Consul sondea cada `10s` (timeout de `3s`) el endpoint `/health` de cada contenedor.
+- **Persistencia en estado crítico (24 horas):** Se configuró `"DeregisterCriticalServiceAfter": "24h"`. Esto asegura que si un servicio se apaga, Consul **NO lo borra del catálogo**, sino que lo mantiene visible en la UI con la **X roja (Critical/Failing)** para la demostración de la sustentación.
+- **Auto-registro continuo en bucle:** Cada servicio mantiene un hilo en segundo plano (`daemon=True`) que cada 20 segundos verifica y renueva su registro ante Consul. Si Consul se reinicia o se vacía la memoria, los microservicios se re-registran automáticamente sin intervención manual.
+
+### 2. Descubrimiento Dinámico de Servicios (`microOrders -> microProducts`)
+
+En `microOrders/orders/controllers/order_controller.py`, la función `products_service_url()` ya **no depende de una URL estática ni de variables de entorno quemadas**. En su lugar, consulta la API en vivo de Consul:
+
+```python
+consul_url = f"http://{CONSUL_HOST}:{CONSUL_PORT}/v1/health/service/products?passing"
+resp = requests.get(consul_url, timeout=3)
+```
+
+1. Consul devuelve la lista de instancias saludables del servicio `products`.
+2. `order_controller.py` extrae dinámicamente la dirección del host (`microproducts`) y su puerto (`5003`).
+3. Emite un log explícito en consola para la sustentación:
+   ```text
+   [Consul Discovery] Servicio 'products' descubierto en http://microproducts:5003
+   ```
+4. Si la instancia de productos está caída o no saludable, Consul devuelve lista vacía y `microOrders` responde controladamente con código HTTP `500` (*"Servicio de productos no disponible"*), evitando inconsistencias en base de datos.
+
+### 3. Monitoreo y UI de Consul
+
+Abre en tu navegador la consola web de Consul:
+👉 <http://localhost:8500/ui> (o a través de la IP de la VM: <http://192.168.56.3:8500/ui>)
+
+Verás los **4 servicios** (`frontend`, `orders`, `products`, `users`) con sus health checks en verde (**passing**).
+
+Para consultar el estado desde la terminal (como indica el PDF del profesor):
+
+```bash
+# Consultar catálogo de servicios registrados
+curl -s http://localhost:8500/v1/catalog/services
+
+# Consultar instancias saludables del servicio de productos
+curl -s http://localhost:8500/v1/health/service/products?passing | jq '.[].Service'
+```
+
+### 4. Prueba de Resiliencia (Paso a paso para la Sustentación)
+
+Esta es la prueba clave que evaluará el docente (0.2 pts de la rúbrica):
+
+1. **Monitorear los logs de órdenes:**
+   En una terminal, pon a correr:
+   ```bash
+   docker compose logs -f microorders
+   ```
+2. **Crear una orden con el sistema normal:**
+   Inicia sesión en <http://localhost:8080> y haz un pedido. Verás en los logs:
+   ```text
+   [Consul Discovery] Servicio 'products' descubierto en http://microproducts:5003
+   ```
+3. **Simular caída de productos:**
+   ```bash
+   docker compose stop microproducts
+   ```
+4. **Verificar en Consul:**
+   Abre <http://localhost:8500/ui>. En 10 segundos, el servicio `products` pasará a estado crítico con la **X roja**.
+5. **Comprobar fallo controlado:**
+   Intenta crear una nueva orden. La API responderá con `500 Servicio de productos no disponible` y la orden NO se creará en base de datos.
+6. **Recuperación del servicio:**
+   ```bash
+   docker compose start microproducts
+   ```
+7. **Redescubrimiento automático:**
+   En 10 segundos, Consul verifica `/health`, vuelve a poner a `products` en **verde (passing)**, y `microOrders` lo redescubre inmediatamente. Las compras vuelven a procesarse sin reiniciar ningún otro contenedor.
 
 ## Documentación
 
