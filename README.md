@@ -1,8 +1,8 @@
 # INTEGRANTES
 
-Juan David Cuero Reina 
-Juan Esteban Vila Marin
-Alejandro Rodriguez Cortes
+1. Juan David Cuero Reina
+2. Juan Esteban Vila Marin
+3. Alejandro Rodriguez Cortes
 
 
 
